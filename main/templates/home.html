@@ -12,7 +12,7 @@
     <title> IDPay </title>
   </head>
   <body>
-   
+
 
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <a class="navbar-brand" href="https://idpay.ir">IDPay</a>
@@ -24,7 +24,7 @@
             <a class="nav-item nav-link active" href="/">Home <span class="sr-only">(current)</span></a>
             <a class="nav-item nav-link" href="/requirement">Requirements</a>
             <a class="nav-item nav-link" href="/about_me">About</a>
-          
+
           </div>
         </div>
       </nav>
@@ -34,12 +34,13 @@
     <div class="container">
         <div class="row">
           <div class="col-12">
-            
+
 
             <table class="table table-bordered">
                 <thead>
                   <tr>
                     <th scope="col">#</th>
+                    <th scope="col">Order ID</th>
                     <th scope="col">Payment ID</th>
                     <th scope="col">Amount</th>
                     <th scope="col">Card Number</th>
@@ -55,6 +56,7 @@
 
                   <tr>
                     <th scope="row">{{payment.pk}}</th>
+                    <td>{{payment.order_id}}</td>
                     <td>{{payment.payment_id}}</td>
                     <td>{{payment.amount}}</td>
                     <td>{{payment.card_number }}</td>
@@ -64,7 +66,7 @@
                     <td><a href="{%url 'payment_check' pk=payment.pk %}">Check</a></td>
                   </tr>
                   {% endfor %}
-                 
+
                 </tbody>
               </table>
 
@@ -80,15 +82,28 @@
             <div class="col-3"></div>
               <div class="col-6">
 
-                <form action="{%url 'start_payment' %}" method="POST">
-                        {% csrf_token %}
+                <form action="{%url 'payment_start' %}" method="POST">
+                    {% csrf_token %}
 
                     <input style="width: 100%;" type="number" name="amount" placeholder="Amount" required>
-                    <br/> <br/> 
+                    <br/> <br/>
+
+                    <input style="width: 100%;" type="text" name="name" placeholder="Name" required>
+                    <br/> <br/>
+
+                    <input style="width: 100%;" type="text" name="phone" placeholder="Phone">
+                    <br/> <br/>
+
+                    <input style="width: 100%;" type="mail" name="mail" placeholder="MAil">
+                    <br/> <br/>
+
+                    <input style="width: 100%;" type="text" name="desc" placeholder="Description">
+                    <br/> <br/>
+
                     <button style="width: 100%;"  type="submit" class="btn btn-primary">Start Payment</button>
 
                 </form>
-    
+
               </div>
               <div class="col-3"></div>
             </div>

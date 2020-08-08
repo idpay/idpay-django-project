@@ -7,12 +7,13 @@ chardet==3.0.4
 defusedxml==0.6.0
 Django==3.0.6
 idna==2.9
+idpay==0.0.1
 isodate==0.6.0
 lxml==4.5.1
+python-decouple==3.1
 pytz==2020.1
 requests==2.23.0
 requests-toolbelt==0.9.1
 six==1.14.0
 sqlparse==0.3.1
 urllib3==1.25.9
-zeep==3.4.0

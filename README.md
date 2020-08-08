@@ -3,4 +3,4 @@
 ### Requirements
 
 - Django v3.0.3
-- zeep v3.4.0
+- idpay v0.0.1
