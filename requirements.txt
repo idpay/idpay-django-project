@@ -1,11 +1,11 @@
 appdirs==1.4.4
-asgiref==3.2.7
+asgiref~=3.2.10
 attrs==19.3.0
 cached-property==1.5.1
 certifi==2020.4.5.1
 chardet==3.0.4
 defusedxml==0.6.0
-Django==3.0.6
+Django>=3.0.7
 idna==2.9
 idpay==0.0.1
 isodate==0.6.0
