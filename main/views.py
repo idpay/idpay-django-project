@@ -1,49 +1,54 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from .models import Main
 from django.views.decorators.csrf import csrf_exempt
+from decouple import config
+from idpay.api import IDPayAPI
 
-import zeep
-from zeep import Client
 import requests
 import json
+import uuid
 
-api = 'your api key here!'
 
+def payment_init():
+    base_url = config('BASE_URL', default='http://127.0.0.1', cast=str)
+    api_key = config('IDPAY_API_KEY', default='', cast=str)
+    sandbox = config('IDPAY_SANDBOX', default=True, cast=bool)
+
+    return IDPayAPI(api_key, base_url, sandbox)
 
 def home(request):
     payments = Main.objects.all()
     return render(request, 'home.html', {'payments': payments})
 
-
-def start_payment(request):
+def payment_start(request):
     if request.method == 'POST':
 
+        order_id = uuid.uuid1()
         amount = request.POST.get('amount')
 
-        url = 'https://api.idpay.ir/v1.1/payment'
-        orderid = '123456'
-        callbackurl = 'yourdomain.com/verify'
+        payer = {
+            'name': request.POST.get('name'),
+            'phone': request.POST.get('phone'),
+            'mail': request.POST.get('mail'),
+            'desc': request.POST.get('desc'),
+        }
 
-        data = {'order_id': orderid, 'amount': amount, 'callback': callbackurl}
-        headers = {'Content-Type': 'application/json', 'X-API-KEY': api, 'X-SANDBOX': '1'}
-        r = requests.post(url, data=json.dumps(data), headers=headers)
 
-        if r.status_code == 201:
+        record = Main(order_id=order_id, amount=int(amount))
+        record.save()
 
-            e = r.json()
-            link = e['link']
-            pid = e['id']
+        idpay_payment = payment_init()
+        result = idpay_payment.payment(str(order_id), amount, 'payment/return', payer)
 
-            b = Main(payment_id=pid, amount=int(amount))
-            b.save()
+        if 'id' in result:
+            record.status = 1
+            record.payment_id = result['id']
+            record.save()
 
-            return redirect(link)
+            return redirect(result['link'])
 
         else:
-
-            e = r.json()
-            txt = "Error Code : " + str(r.status_code) + "   |   " + "Description : " + str(e['error_message'])
-
+            txt = result['message']
     else:
         txt = "Bad Request"
 
@@ -51,99 +56,75 @@ def start_payment(request):
 
 
 @csrf_exempt
-def payment_verify(request):
+def payment_return(request):
     if request.method == 'POST':
 
+        pid = request.POST.get('id')
         status = request.POST.get('status')
         pidtrack = request.POST.get('track_id')
-        pid = request.POST.get('id')
+        order_id = request.POST.get('order_id')
         amount = request.POST.get('amount')
         card = request.POST.get('card_no')
         date = request.POST.get('date')
 
-        if Main.objects.filter(payment_id=pid, amount=amount).count() == 1:
+        if Main.objects.filter(order_id=order_id, payment_id=pid, amount=amount, status=1).count() == 1:
 
-            b = Main.objects.get(payment_id=pid, amount=amount)
-            b.status = status
-            b.date = str(date)
-            b.card_number = card
-            b.idpay_track_id = pidtrack
-            b.save()
+            idpay_payment = payment_init()
+
+            payment = Main.objects.get(payment_id=pid, amount=amount)
+            payment.status = status
+            payment.date = str(date)
+            payment.card_number = card
+            payment.idpay_track_id = pidtrack
+            payment.save()
 
             if str(status) == '10':
+                result = idpay_payment.verify(pid, payment.order_id)
 
-                url = 'https://api.idpay.ir/v1.1/payment/verify'
+                if 'status' in result:
 
-                orderid = '123456'
+                    payment.status = result['status']
+                    payment.bank_track_id = result['payment']['track_id']
+                    payment.save()
 
-                data = {'order_id': orderid, 'id': pid}
-                headers = {'Content-Type': 'application/json', 'X-API-KEY': api, 'X-SANDBOX': '1'}
-                r = requests.post(url, data=json.dumps(data), headers=headers)
-
-                if r.status_code == 200:
-
-                    e = r.json()
-
-                    b = Main.objects.get(payment_id=pid, amount=amount)
-                    b.status = e['status']
-                    b.bank_track_id = e['payment']['track_id']
-                    b.save()
-
-                    txt = "Transaction Verified"
-                    return render(request, 'error.html', {'txt': txt})
+                    return render(request, 'error.html', {'txt': result['message']})
 
                 else:
-
-                    e = r.json()
-                    txt = "Error Code : " + str(r.status_code) + "   |   " + "Description : " + str(e['error_message'])
+                    txt = result['message']
 
             else:
-
-                if str(status) == '1':
-                    txt = "Error Code : " + str(status) + "   |   " + "Description : " + "پرداخت انجام نشده"
-                elif str(status) == '2':
-                    txt = "Error Code : " + str(status) + "   |   " + "Description : " + "پرداخت نا موفق"
-                elif str(status) == '3':
-                    txt = "Error Code : " + str(status) + "   |   " + "Description : " + "خطایی رخ داده"
-                elif str(status) == '6':
-                    txt = "Error Code : " + str(status) + "   |   " + "Description : " + "برگشت خورده سیستمی"
+                txt = "Error Code : " + str(status) + "   |   " + "Description : " + idpay_payment.get_status(status)
 
         else:
-
-            txt = "Bad Request"
+            txt = "Order Not Found"
 
     else:
-
         txt = "Bad Request"
 
     return render(request, 'error.html', {'txt': txt})
 
 
 def payment_check(request, pk):
-    url = 'https://api.idpay.ir/v1.1/payment/inquiry'
-    orderid = '123456'
 
-    pid = Main.objects.get(pk=pk).payment_id
+    payment = Main.objects.get(pk=pk)
 
-    data = {'order_id': orderid, 'id': pid}
-    headers = {'Content-Type': 'application/json', 'X-API-KEY': api, 'X-SANDBOX': '1'}
-    r = requests.post(url, data=json.dumps(data), headers=headers)
+    idpay_payment = payment_init()
+    result = idpay_payment.inquiry(payment.payment_id, payment.order_id)
 
-    if r.status_code == 200:
+    if 'status' in result:
 
-        e = r.json()
-        txt = "Status Code : " + str(e.get('status'))
+        payment.status = result['status']
+        payment.idpay_track_id = result['track_id']
+        payment.bank_track_id = result['payment']['track_id']
+        payment.card_number = result['payment']['card_no']
+        payment.date = str(result['date'])
+        payment.save()
 
-    else:
-
-        e = r.json()
-        txt = "Error Code : " + str(r.status_code) + "   |   " + "Description : " + str(e['error_message'])
-
-    return render(request, 'error.html', {'txt': txt})
+    return render(request, 'error.html', {'txt': result['message']})
 
 
 def requirement(request):
-    txt = "pip install zeep"
+    txt = "pip install idpay"
 
     return render(request, 'error.html', {'txt': txt})
 
