@@ -9,7 +9,7 @@ Django>=3.0.7
 idna==2.9
 idpay==0.0.1
 isodate==0.6.0
-lxml==4.6.3
+lxml==4.6.5
 python-decouple==3.1
 pytz==2020.1
 requests==2.23.0
