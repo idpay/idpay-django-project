@@ -2,7 +2,7 @@ appdirs==1.4.4
 asgiref~=3.2.10
 attrs==19.3.0
 cached-property==1.5.1
-certifi==2020.4.5.1
+certifi==2022.12.7
 chardet==3.0.4
 defusedxml==0.6.0
 Django>=3.0.7
